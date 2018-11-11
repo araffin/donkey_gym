@@ -95,6 +95,7 @@ class DonkeyUnitySimHandler(IMesgHandler):
         self.z = 0.0
         self.steering_angle  = 0.0
         self.current_step = 0
+        self.error_too_high = False
 
         self.fns = {'telemetry': self.on_telemetry,
                     "scene_selection_ready": self.on_scene_selection_ready,
@@ -157,7 +158,7 @@ class DonkeyUnitySimHandler(IMesgHandler):
         observation = self.image_array
         done = self.is_game_over()
         reward = self.calc_reward(done)
-        info = {}
+        info = {'error_too_high': self.error_too_high}
 
         self.timer.on_frame()
 
@@ -167,7 +168,9 @@ class DonkeyUnitySimHandler(IMesgHandler):
         # Workaround for big error at start.
         if math.fabs(self.cte) > 2 * self.CTE_MAX_ERR and self.current_step < 10:
             print("Too high error, ignoring {:.2f}".format(self.cte))
-            return True
+            self.error_too_high = True
+            return False
+        self.error_too_high = False
         return self.hit != "none" or math.fabs(self.cte) > self.CTE_MAX_ERR
 
     # ------ RL interface ----------- #
