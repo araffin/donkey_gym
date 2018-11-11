@@ -1,34 +1,25 @@
-'''
+"""
 file: donkey_sim.py
 author: Tawn Kramer
 date: 2018-08-31
-'''
+"""
 
-import os
-import json
-import shutil
+import asyncore
 import base64
-import random
+import math
 import time
 from io import BytesIO
-import math
 from threading import Thread
 
 import numpy as np
 from PIL import Image
-from io import BytesIO
-import base64
-import datetime
-import asyncore
-
 from donkey_gym.core.fps import FPSTimer
 from donkey_gym.core.tcp_server import IMesgHandler, SimServer
 
 
-class DonkeyUnitySimContoller():
-
-    #cross track error max
-    CTE_MAX_ERR = 5.0
+class DonkeyUnitySimContoller:
+    # cross track error max
+    CTE_MAX_ERR = 3.5
 
     def __init__(self, level, time_step=0.05, port=9090):
         self.level = level
@@ -37,7 +28,7 @@ class DonkeyUnitySimContoller():
         self.wait_time_for_obs = 0.1
 
         # sensor size - height, width, depth
-        self.camera_img_size=(80, 160, 3)
+        self.camera_img_size = (80, 160, 3)
 
         self.address = ('0.0.0.0', port)
 
@@ -79,9 +70,8 @@ class DonkeyUnitySimContoller():
 
 
 class DonkeyUnitySimHandler(IMesgHandler):
-
-    #cross track error max
-    CTE_MAX_ERR = 5.0
+    # cross track error max
+    CTE_MAX_ERR = 3.5
     FPS = 60.0
 
     def __init__(self, level, time_step=0.05):
@@ -94,7 +84,7 @@ class DonkeyUnitySimHandler(IMesgHandler):
         self.timer = FPSTimer()
 
         # sensor size - height, width, depth
-        self.camera_img_size=(80, 160, 3)
+        self.camera_img_size = (80, 160, 3)
         self.image_array = np.zeros(self.camera_img_size)
         self.last_obs = None
         self.last_throttle = 0.0
@@ -104,19 +94,19 @@ class DonkeyUnitySimHandler(IMesgHandler):
         self.y = 0.0
         self.z = 0.0
 
-        self.fns = {'telemetry' : self.on_telemetry,
-                    "scene_selection_ready" : self.on_scene_selection_ready,
+        self.fns = {'telemetry': self.on_telemetry,
+                    "scene_selection_ready": self.on_scene_selection_ready,
                     "scene_names": self.on_recv_scene_names,
-                    "car_loaded" : self.on_car_loaded }
+                    "car_loaded": self.on_car_loaded}
 
-    def on_connect(self, socketHandler):
-        self.sock = socketHandler
+    def on_connect(self, socket_handler):
+        self.sock = socket_handler
 
     def on_disconnect(self):
         self.sock = None
 
     def on_recv_message(self, message):
-        if not 'msg_type' in message:
+        if 'msg_type' not in message:
             print('expected msg_type field')
             return
 
@@ -126,7 +116,7 @@ class DonkeyUnitySimHandler(IMesgHandler):
         else:
             print('unknown message type', msg_type)
 
-    ## ------- Env interface ---------- ##
+    # ------- Env interface ---------- #
 
     def reset(self):
         if self.verbose:
@@ -169,14 +159,13 @@ class DonkeyUnitySimHandler(IMesgHandler):
 
         return observation, reward, done, info
 
-
     def is_game_over(self):
         # Workarund for big error at start.
         if math.fabs(self.cte) > 2 * self.CTE_MAX_ERR:
             return False
         return self.hit != "none" or math.fabs(self.cte) > self.CTE_MAX_ERR
 
-    ## ------ RL interface ----------- ##
+    # ------ RL interface ----------- #
 
     # Use velocity (m/s) as reward for every step,
     # except when episode done (failed).
@@ -187,17 +176,16 @@ class DonkeyUnitySimHandler(IMesgHandler):
         velocity = self.last_throttle * (1.0 / self.FPS)
         return velocity
 
-
-    ## ------ Socket interface ----------- ##
+    # ------ Socket interface ----------- #
 
     def on_telemetry(self, data):
-        imgString = data["image"]
-        image = Image.open(BytesIO(base64.b64decode(imgString)))
+        img_string = data["image"]
+        image = Image.open(BytesIO(base64.b64decode(img_string)))
         # Crop to the zone of interest - remove top third.
         # Crop image to size 80x160x3.
         self.image_array = np.delete(np.asarray(image), np.s_[0:40:], axis=0)
 
-        #name of object we just hit. "none" if nothing.
+        # name of object we just hit. "none" if nothing.
         if self.hit == "none":
             self.hit = data["hit"]
 
@@ -205,19 +193,19 @@ class DonkeyUnitySimHandler(IMesgHandler):
         self.y = data["pos_y"]
         self.z = data["pos_z"]
 
-        #Cross track error not always present.
-        #Will be missing if path is not setup in the given scene.
-        #It should be setup in the 3 scenes available now.
+        # Cross track error not always present.
+        # Will be missing if path is not setup in the given scene.
+        # It should be setup in the 3 scenes available now.
         try:
             self.cte = data["cte"]
-        except:
+        except KeyError:
             pass
 
-    def on_scene_selection_ready(self, data):
+    def on_scene_selection_ready(self, _data):
         print("SceneSelectionReady ")
         self.send_get_scene_names()
 
-    def on_car_loaded(self, data):
+    def on_car_loaded(self, _data):
         if self.verbose:
             print("car loaded")
         self.loaded = True
@@ -232,19 +220,19 @@ class DonkeyUnitySimHandler(IMesgHandler):
     def send_control(self, steer, throttle):
         if not self.loaded:
             return
-        msg = { 'msg_type' : 'control', 'steering': steer.__str__(), 'throttle':throttle.__str__(), 'brake': '0.0' }
-        self.queue_message(msg)        
-        
+        msg = {'msg_type': 'control', 'steering': steer.__str__(), 'throttle': throttle.__str__(), 'brake': '0.0'}
+        self.queue_message(msg)
+
     def send_reset_car(self):
-        msg = { 'msg_type' : 'reset_car' }
+        msg = {'msg_type': 'reset_car'}
         self.queue_message(msg)
 
     def send_get_scene_names(self):
-        msg = { 'msg_type' : 'get_scene_names' }
+        msg = {'msg_type': 'get_scene_names'}
         self.queue_message(msg)
 
     def send_load_scene(self, scene_name):
-        msg = { 'msg_type' : 'load_scene', 'scene_name' : scene_name }
+        msg = {'msg_type': 'load_scene', 'scene_name': scene_name}
         self.queue_message(msg)
 
     def queue_message(self, msg):
@@ -252,7 +240,7 @@ class DonkeyUnitySimHandler(IMesgHandler):
             if self.verbose:
                 print('skiping:', msg)
             return
-            
+
         if self.verbose:
             print('sending', msg)
         self.sock.queue_message(msg)

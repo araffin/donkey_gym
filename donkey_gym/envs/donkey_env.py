@@ -1,17 +1,17 @@
-'''
+"""
 file: donkey_env.py
 author: Tawn Kramer
 date: 2018-08-31
-'''
+"""
 import os
-from threading import Thread
 
-import numpy as np
 import gym
-from gym import error, spaces, utils
-from gym.utils import seeding
-from donkey_gym.envs.donkey_sim import DonkeyUnitySimContoller
+import numpy as np
 from donkey_gym.envs.donkey_proc import DonkeyUnityProcess
+from donkey_gym.envs.donkey_sim import DonkeyUnitySimContoller
+from gym import spaces
+from gym.utils import seeding
+
 
 class DonkeyEnv(gym.Env):
     """
@@ -29,23 +29,23 @@ class DonkeyEnv(gym.Env):
         print("starting DonkeyGym env")
         # start Unity simulation subprocess
         self.proc = DonkeyUnityProcess()
-        
+
         try:
             exe_path = os.environ['DONKEY_SIM_PATH']
-        except:
+        except KeyError:
             print("Missing DONKEY_SIM_PATH environment var. Using defaults")
-            #you must start the executable on your own
+            # you must start the executable on your own
             exe_path = "self_start"
-        
+
         try:
             port = int(os.environ['DONKEY_SIM_PORT'])
-        except:
+        except KeyError:
             print("Missing DONKEY_SIM_PORT environment var. Using defaults")
             port = 9090
-            
+
         try:
-            headless = os.environ['DONKEY_SIM_HEADLESS']=='1'
-        except:
+            headless = os.environ['DONKEY_SIM_HEADLESS'] == '1'
+        except KeyError:
             print("Missing DONKEY_SIM_HEADLESS environment var. Using defaults")
             headless = False
 
@@ -70,6 +70,7 @@ class DonkeyEnv(gym.Env):
         # wait until loaded
         self.viewer.wait_until_loaded()
 
+        self.np_random = None
 
     def close(self):
         self.proc.quit()
@@ -99,22 +100,25 @@ class DonkeyEnv(gym.Env):
         return self.viewer.is_game_over()
 
 
-## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
 class GeneratedRoadsEnv(DonkeyEnv):
 
     def __init__(self):
         super(GeneratedRoadsEnv, self).__init__(level=0)
 
+
 class WarehouseEnv(DonkeyEnv):
 
     def __init__(self):
         super(WarehouseEnv, self).__init__(level=1)
 
+
 class AvcSparkfunEnv(DonkeyEnv):
 
     def __init__(self):
         super(AvcSparkfunEnv, self).__init__(level=2)
+
 
 class GeneratedTrackEnv(DonkeyEnv):
 

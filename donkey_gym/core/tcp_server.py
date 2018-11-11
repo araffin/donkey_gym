@@ -1,31 +1,29 @@
-'''
+"""
 migrate something general here
-'''
-import os
-import json
-import time
+"""
 import asyncore
 import json
-import socket
 import re
+import socket
+
 
 def replace_float_notation(string):
-	regex_french_notation = r'"[a-zA-Z_]+":(?P<num>[0-9,E-]+),'
-	regex_end = r'"[a-zA-Z_]+":(?P<num>[0-9,E-]+)}'
+    regex_french_notation = r'"[a-zA-Z_]+":(?P<num>[0-9,E-]+),'
+    regex_end = r'"[a-zA-Z_]+":(?P<num>[0-9,E-]+)}'
 
-	for regex in [regex_french_notation, regex_end]:
-		matches = re.finditer(regex, string, re.MULTILINE)
+    for regex in [regex_french_notation, regex_end]:
+        matches = re.finditer(regex, string, re.MULTILINE)
 
-		for match in matches:
-			start, end = match.start('num'), match.end('num')
-			num = match.group('num').replace(',', '.')
-			string = string.replace(match.group('num'), num)
-	return string
+        for match in matches:
+            # start, end = match.start('num'), match.end('num')
+            num = match.group('num').replace(',', '.')
+            string = string.replace(match.group('num'), num)
+    return string
 
 
 class IMesgHandler(object):
 
-    def on_connect(self, socketHandler):
+    def on_connect(self, socket_handler):
         pass
 
     def on_recv_message(self, message):
@@ -47,25 +45,24 @@ class SimServer(asyncore.dispatcher):
     def __init__(self, address, msg_handler):
         asyncore.dispatcher.__init__(self)
 
-        #create a TCP socket to listen for connections
+        # create a TCP socket to listen for connections
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        #in case we have shutdown recently, allow the os to reuse this address. helps when restarting
+        # in case we have shutdown recently, allow the os to reuse this address. helps when restarting
         self.set_reuse_addr()
 
-        #let TCP stack know that we'd like to sit on this address and listen for connections
+        # let TCP stack know that we'd like to sit on this address and listen for connections
         self.bind(address)
 
-        #confirm for users what address we are listening on
+        # confirm for users what address we are listening on
         self.address = self.socket.getsockname()
         print('binding to', self.address)
 
-        #let tcp stack know we plan to process one outstanding request to connect request each loop
+        # let tcp stack know we plan to process one outstanding request to connect request each loop
         self.listen(5)
 
-        #keep a pointer to our IMesgHandler handler
+        # keep a pointer to our IMesgHandler handler
         self.msg_handler = msg_handler
-
 
     def handle_accept(self):
         # Called when a client connects to our socket
@@ -73,9 +70,8 @@ class SimServer(asyncore.dispatcher):
 
         print('got a new client', client_info[1])
 
-        #make a new steering handler to communicate with the client
+        # make a new steering handler to communicate with the client
         SimHandler(sock=client_info[0], msg_handler=self.msg_handler)
-
 
     def handle_close(self):
         print("server shutdown")
@@ -91,25 +87,24 @@ class SimHandler(asyncore.dispatcher):
       Handles messages from a single TCP client.
     """
 
-    def __init__(self, sock, chunk_size=(16*1024), msg_handler=None):
-        #we call our base class init
+    def __init__(self, sock, chunk_size=(16 * 1024), msg_handler=None):
+        # we call our base class init
         asyncore.dispatcher.__init__(self, sock=sock)
 
-        #msg_handler handles incoming messages
+        # msg_handler handles incoming messages
         self.msg_handler = msg_handler
 
         if msg_handler:
             msg_handler.on_connect(self)
 
-        #chunk size is the max number of bytes to read per network packet
+        # chunk size is the max number of bytes to read per network packet
         self.chunk_size = chunk_size
 
-        #we make an empty list of packets to send to the client here
+        # we make an empty list of packets to send to the client here
         self.data_to_write = []
 
-        #and image bytes is an empty list of partial bytes of the image as it comes in
+        # and image bytes is an empty list of partial bytes of the image as it comes in
         self.data_to_read = []
-
 
     def writable(self):
         """
@@ -123,7 +118,6 @@ class SimHandler(asyncore.dispatcher):
         json_msg = json.dumps(msg)
         self.data_to_write.append(json_msg)
 
-
     def handle_write(self):
         """
           Write as much as possible of the most recent message we have received.
@@ -131,21 +125,20 @@ class SimHandler(asyncore.dispatcher):
           and when self.writable return true, that yes, we have data to send.
         """
 
-        #pop the first element from the list. encode will make it into a byte stream
+        # pop the first element from the list. encode will make it into a byte stream
         data = self.data_to_write.pop(0).encode()
 
-        #send a slice of that data, up to a max of the chunk_size
+        # send a slice of that data, up to a max of the chunk_size
         sent = self.send(data[:self.chunk_size])
 
-        #if we didn't send all the data..
+        # if we didn't send all the data..
         if sent < len(data):
-            #then slick off the portion that remains to be sent
+            # then slick off the portion that remains to be sent
             remaining = data[sent:]
 
-            #since we've popped it off the list, add it back to the list to send next
-            #probably should change this to a deque...
+            # since we've popped it off the list, add it back to the list to send next
+            # probably should change this to a deque...
             self.data_to_write.insert(0, remaining)
-
 
     def handle_read(self):
         """
@@ -154,13 +147,13 @@ class SimHandler(asyncore.dispatcher):
           processed.
         """
 
-        #receive a chunK of data with the max size chunk_size from our client.
+        # receive a chunK of data with the max size chunk_size from our client.
         data = self.recv(self.chunk_size)
 
         if len(data) == 0:
-          #this only happens when the connection is dropped
-          self.handle_close()
-          return
+            # this only happens when the connection is dropped
+            self.handle_close()
+            return
 
         self.data_to_read.append(data.decode("utf-8"))
 
@@ -176,30 +169,27 @@ class SimHandler(asyncore.dispatcher):
             else:
                 self.data_to_read.append(mesg)
 
-
     def handle_json_message(self, chunk):
-        '''
+        """
         We are expecing a json object
-        '''
+        """
         try:
-            #convert data into a string with decode, and then load it as a json object
+            # convert data into a string with decode, and then load it as a json object
             chunk = replace_float_notation(chunk)
-            jsonObj = json.loads(chunk)
+            json_obj = json.loads(chunk)
         except Exception as e:
-            #something bad happened, usually malformed json packet. jump back to idle and hope things continue
+            # something bad happened, usually malformed json packet. jump back to idle and hope things continue
             print(e, 'failed to read json ', chunk)
             return
 
         try:
             if self.msg_handler:
-                self.msg_handler.on_recv_message(jsonObj)
+                self.msg_handler.on_recv_message(json_obj)
         except Exception as e:
             print(e, '>>> failure during on_recv_message:', chunk)
 
-
-
     def handle_close(self):
-        #when client drops or closes connection
+        # when client drops or closes connection
         if self.msg_handler:
             self.msg_handler.on_disconnect()
             self.msg_handler = None
