@@ -19,7 +19,7 @@ from donkey_gym.core.tcp_server import IMesgHandler, SimServer
 
 class DonkeyUnitySimContoller:
     # cross track error max
-    CTE_MAX_ERR = 3.5
+    # CTE_MAX_ERR = 3.5
 
     def __init__(self, level, time_step=0.05, port=9090):
         self.level = level
@@ -81,7 +81,7 @@ class DonkeyUnitySimHandler(IMesgHandler):
         self.sock = None
         self.loaded = False
         self.verbose = False
-        self.timer = FPSTimer()
+        self.timer = FPSTimer(verbose=1)
 
         # sensor size - height, width, depth
         self.camera_img_size = (80, 160, 3)
@@ -93,6 +93,8 @@ class DonkeyUnitySimHandler(IMesgHandler):
         self.x = 0.0
         self.y = 0.0
         self.z = 0.0
+        self.steering_angle  = 0.0
+        self.current_step = 0
 
         self.fns = {'telemetry': self.on_telemetry,
                     "scene_selection_ready": self.on_scene_selection_ready,
@@ -128,6 +130,7 @@ class DonkeyUnitySimHandler(IMesgHandler):
         self.x = 0.0
         self.y = 0.0
         self.z = 0.0
+        self.current_step = 0
         self.send_reset_car()
         time.sleep(1.0)
         self.timer.reset()
@@ -142,6 +145,7 @@ class DonkeyUnitySimHandler(IMesgHandler):
         # Static throttle
         throttle = 0.5
         self.last_throttle = throttle
+        self.current_step += 1
 
         self.send_control(action[0], throttle)
 
@@ -160,9 +164,10 @@ class DonkeyUnitySimHandler(IMesgHandler):
         return observation, reward, done, info
 
     def is_game_over(self):
-        # Workarund for big error at start.
-        if math.fabs(self.cte) > 2 * self.CTE_MAX_ERR:
-            return False
+        # Workaround for big error at start.
+        if math.fabs(self.cte) > 2 * self.CTE_MAX_ERR and self.current_step < 10:
+            print("Too high error, ignoring {:.2f}".format(self.cte))
+            return True
         return self.hit != "none" or math.fabs(self.cte) > self.CTE_MAX_ERR
 
     # ------ RL interface ----------- #
@@ -192,6 +197,7 @@ class DonkeyUnitySimHandler(IMesgHandler):
         self.x = data["pos_x"]
         self.y = data["pos_y"]
         self.z = data["pos_z"]
+        self.steering_angle = data['steering_angle']
 
         # Cross track error not always present.
         # Will be missing if path is not setup in the given scene.
@@ -199,6 +205,7 @@ class DonkeyUnitySimHandler(IMesgHandler):
         try:
             self.cte = data["cte"]
         except KeyError:
+            print("No CTE")
             pass
 
     def on_scene_selection_ready(self, _data):
@@ -238,7 +245,7 @@ class DonkeyUnitySimHandler(IMesgHandler):
     def queue_message(self, msg):
         if self.sock is None:
             if self.verbose:
-                print('skiping:', msg)
+                print('skipping:', msg)
             return
 
         if self.verbose:

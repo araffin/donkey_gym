@@ -2,9 +2,10 @@ import time
 
 
 class FPSTimer(object):
-    def __init__(self):
+    def __init__(self, verbose=1):
         self.t = time.time()
         self.iter = 0
+        self.verbose = verbose
 
     def reset(self):
         self.t = time.time()
@@ -14,6 +15,7 @@ class FPSTimer(object):
         self.iter += 1
         if self.iter == 100:
             e = time.time()
-            print('fps', 100.0 / (e - self.t))
+            if self.verbose >= 1:
+                print('{:.2f} fps'.format(100.0 / (e - self.t)))
             self.t = time.time()
             self.iter = 0
