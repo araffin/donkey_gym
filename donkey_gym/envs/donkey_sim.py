@@ -144,7 +144,8 @@ class DonkeyUnitySimHandler(IMesgHandler):
             print("take_action")
 
         # Static throttle
-        throttle = 0.5
+        # throttle = 0.5
+        throttle = action[1]
         self.last_throttle = throttle
         self.current_step += 1
 
@@ -169,6 +170,9 @@ class DonkeyUnitySimHandler(IMesgHandler):
         if math.fabs(self.cte) > 2 * self.CTE_MAX_ERR and self.current_step < 10:
             print("Too high error, ignoring {:.2f}".format(self.cte))
             self.error_too_high = True
+            # self.send_get_scene_names()
+            # self.send_load_scene("generated_road")
+            # self.send_load_scene("warehouse")
             return False
         self.error_too_high = False
         return self.hit != "none" or math.fabs(self.cte) > self.CTE_MAX_ERR
@@ -179,10 +183,10 @@ class DonkeyUnitySimHandler(IMesgHandler):
     # except when episode done (failed).
     def calc_reward(self, done):
         if done:
-            return 0.0
-
+            return -1
+        # 1 per timesteps + velocity
         velocity = self.last_throttle * (1.0 / self.FPS)
-        return velocity
+        return 1 + velocity
 
     # ------ Socket interface ----------- #
 
