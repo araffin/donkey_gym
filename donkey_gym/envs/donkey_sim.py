@@ -71,7 +71,7 @@ class DonkeyUnitySimContoller:
 
 class DonkeyUnitySimHandler(IMesgHandler):
     # cross track error max
-    CTE_MAX_ERR = 3.5
+    CTE_MAX_ERR = 3.0
     FPS = 60.0
 
     def __init__(self, level, time_step=0.05):
@@ -133,6 +133,7 @@ class DonkeyUnitySimHandler(IMesgHandler):
         self.z = 0.0
         self.current_step = 0
         self.send_reset_car()
+        self.send_control(0, 0)
         time.sleep(1.0)
         self.timer.reset()
 
@@ -167,13 +168,13 @@ class DonkeyUnitySimHandler(IMesgHandler):
 
     def is_game_over(self):
         # Workaround for big error at start.
-        if math.fabs(self.cte) > 2 * self.CTE_MAX_ERR and self.current_step < 10:
-            print("Too high error, ignoring {:.2f}".format(self.cte))
-            self.error_too_high = True
-            # self.send_get_scene_names()
-            # self.send_load_scene("generated_road")
-            # self.send_load_scene("warehouse")
-            return False
+        # if math.fabs(self.cte) > 2 * self.CTE_MAX_ERR and self.current_step < 10:
+        #     print("Too high error, ignoring {:.2f}".format(self.cte))
+        #     self.error_too_high = True
+        #     # self.send_get_scene_names()
+        #     # self.send_load_scene("generated_road")
+        #     # self.send_load_scene("warehouse")
+        #     return False
         self.error_too_high = False
         return self.hit != "none" or math.fabs(self.cte) > self.CTE_MAX_ERR
 
