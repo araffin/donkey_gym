@@ -18,10 +18,8 @@ from donkey_gym.core.tcp_server import IMesgHandler, SimServer
 
 
 class DonkeyUnitySimContoller:
-    # cross track error max
-    # CTE_MAX_ERR = 3.5
 
-    def __init__(self, level, time_step=0.05, port=9090):
+    def __init__(self, level, time_step=0.05, port=9090, max_cte_error=3.0):
         self.level = level
         self.time_step = time_step
         self.verbose = False
@@ -32,7 +30,7 @@ class DonkeyUnitySimContoller:
 
         self.address = ('0.0.0.0', port)
 
-        self.handler = DonkeyUnitySimHandler(level, time_step=time_step)
+        self.handler = DonkeyUnitySimHandler(level, time_step=time_step, max_cte_error=max_cte_error)
         self.server = SimServer(self.address, self.handler)
 
         self.thread = Thread(target=asyncore.loop)
@@ -71,10 +69,9 @@ class DonkeyUnitySimContoller:
 
 class DonkeyUnitySimHandler(IMesgHandler):
     # cross track error max
-    CTE_MAX_ERR = 3.0
     FPS = 60.0
 
-    def __init__(self, level, time_step=0.05):
+    def __init__(self, level, time_step=0.05, max_cte_error=3.0):
         self.iSceneToLoad = level
         self.time_step = time_step
         self.wait_time_for_obs = 0.1
@@ -82,6 +79,7 @@ class DonkeyUnitySimHandler(IMesgHandler):
         self.loaded = False
         self.verbose = False
         self.timer = FPSTimer(verbose=1)
+        self.max_cte_error = max_cte_error
 
         # sensor size - height, width, depth
         self.camera_img_size = (80, 160, 3)
@@ -168,7 +166,7 @@ class DonkeyUnitySimHandler(IMesgHandler):
 
     def is_game_over(self):
         # Workaround for big error at start.
-        # if math.fabs(self.cte) > 2 * self.CTE_MAX_ERR and self.current_step < 10:
+        # if math.fabs(self.cte) > 2 * self.max_cte_error and self.current_step < 10:
         #     print("Too high error, ignoring {:.2f}".format(self.cte))
         #     self.error_too_high = True
         #     # self.send_get_scene_names()
@@ -176,7 +174,7 @@ class DonkeyUnitySimHandler(IMesgHandler):
         #     # self.send_load_scene("warehouse")
         #     return False
         self.error_too_high = False
-        return self.hit != "none" or math.fabs(self.cte) > self.CTE_MAX_ERR
+        return self.hit != "none" or math.fabs(self.cte) > self.max_cte_error
 
     # ------ RL interface ----------- #
 
@@ -186,6 +184,7 @@ class DonkeyUnitySimHandler(IMesgHandler):
         if done:
             return -1
         # 1 per timesteps + velocity
+        # TODO: use real speed + jerk penalty
         velocity = self.last_throttle * (1.0 / self.FPS)
         return 1 + velocity
 
