@@ -233,8 +233,8 @@ class DonkeyUnitySimHandler(IMesgHandler):
         if not self.loaded:
             return
         msg = { 'msg_type' : 'control', 'steering': steer.__str__(), 'throttle':throttle.__str__(), 'brake': '0.0' }
-        self.queue_message(msg)        
-        
+        self.queue_message(msg)
+
     def send_reset_car(self):
         msg = { 'msg_type' : 'reset_car' }
         self.queue_message(msg)
@@ -252,7 +252,7 @@ class DonkeyUnitySimHandler(IMesgHandler):
             if self.verbose:
                 print('skiping:', msg)
             return
-            
+
         if self.verbose:
             print('sending', msg)
         self.sock.queue_message(msg)
